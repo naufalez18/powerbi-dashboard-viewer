@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, BarChart3 } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -45,21 +45,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-white rounded-full shadow-sm">
-              <img 
-                src="/frontend/assets/logo.png" 
-                alt="REO Logo" 
-                className="h-12 w-12 object-contain"
-                onError={(e) => {
-                  // Fallback to a simple colored div if image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const fallback = document.createElement('div');
-                  fallback.className = 'h-12 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xl';
-                  fallback.textContent = 'REO';
-                  target.parentNode?.appendChild(fallback);
-                }}
-              />
+            <div className="p-3 bg-blue-100 rounded-full">
+              <BarChart3 className="h-8 w-8 text-blue-600" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
