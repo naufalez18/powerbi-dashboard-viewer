@@ -20,6 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { powerBiDashboards } from '../config/dashboards';
 import { useUserActivity } from '../hooks/useUserActivity';
 import { useAutoRotation } from '../hooks/useAutoRotation';
+import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function DashboardPage() {
   const { isAuthenticated, logout } = useAuth();
@@ -114,7 +115,7 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
                 <img 
-                  src="/frontend/assets/mandiri-logo.png" 
+                  src={mandiriLogo} 
                   alt="Mandiri Logo" 
                   className="h-8 w-auto object-contain"
                   onError={(e) => {
@@ -124,7 +125,9 @@ export default function DashboardPage() {
                     const fallback = document.createElement('div');
                     fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
                     fallback.textContent = 'REO';
-                    target.parentNode?.appendChild(fallback);
+                    if (target.parentNode) {
+                      target.parentNode.appendChild(fallback);
+                    }
                   }}
                 />
                 <h1 className="text-xl font-semibold text-gray-900">

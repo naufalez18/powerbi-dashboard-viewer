@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
+import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -47,7 +48,7 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-white rounded-full shadow-sm">
               <img 
-                src="/frontend/assets/mandiri-logo.png" 
+                src={mandiriLogo} 
                 alt="Mandiri Logo" 
                 className="h-12 w-auto object-contain"
                 onError={(e) => {
@@ -57,7 +58,9 @@ export default function LoginPage() {
                   const fallback = document.createElement('div');
                   fallback.className = 'h-12 w-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm';
                   fallback.textContent = 'REO';
-                  target.parentNode?.appendChild(fallback);
+                  if (target.parentNode) {
+                    target.parentNode.appendChild(fallback);
+                  }
                 }}
               />
             </div>
