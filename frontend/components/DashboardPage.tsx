@@ -112,9 +112,25 @@ export default function DashboardPage() {
         <nav className="bg-white shadow-sm border-b border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900">
-                REO Dashboard Viewer
-              </h1>
+              <div className="flex items-center space-x-3">
+                <img 
+                  src="/frontend/assets/mandiri-logo.png" 
+                  alt="Mandiri Logo" 
+                  className="h-8 w-auto object-contain"
+                  onError={(e) => {
+                    // Fallback to a simple colored div if image fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
+                    fallback.textContent = 'REO';
+                    target.parentNode?.appendChild(fallback);
+                  }}
+                />
+                <h1 className="text-xl font-semibold text-gray-900">
+                  REO Dashboard Viewer
+                </h1>
+              </div>
               <Badge variant={isUserActive ? "default" : "secondary"}>
                 {isUserActive ? "Active" : "Idle"}
               </Badge>
