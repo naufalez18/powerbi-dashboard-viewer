@@ -52,12 +52,29 @@ export class StorageManager {
    */
   private static saveStorageData(data: Partial<StorageSchema>): void {
     try {
-      const currentData = this.getStorageData() || {
-        version: CURRENT_SCHEMA_VERSION,
-        dashboards: [],
-        settings: { rotationInterval: 60 },
-        lastUpdated: new Date().toISOString(),
-      };
+      // Get current data without triggering migration to avoid recursion
+      const currentDataRaw = localStorage.getItem(this.STORAGE_KEY);
+      let currentData: StorageSchema;
+      
+      if (currentDataRaw) {
+        try {
+          currentData = JSON.parse(currentDataRaw) as StorageSchema;
+        } catch {
+          currentData = {
+            version: CURRENT_SCHEMA_VERSION,
+            dashboards: [],
+            settings: { rotationInterval: 60 },
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+      } else {
+        currentData = {
+          version: CURRENT_SCHEMA_VERSION,
+          dashboards: [],
+          settings: { rotationInterval: 60 },
+          lastUpdated: new Date().toISOString(),
+        };
+      }
 
       const updatedData: StorageSchema = {
         ...currentData,
@@ -88,19 +105,37 @@ export class StorageManager {
       case 0:
       case undefined:
         // Migrate from version 0 (or undefined) to version 1
-        return {
+        const migratedData = {
           version: CURRENT_SCHEMA_VERSION,
           dashboards: data.dashboards || [],
           settings: data.settings || { rotationInterval: 60 },
           lastUpdated: new Date().toISOString(),
         };
+        
+        // Save migrated data directly to avoid recursion
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(migratedData));
+        } catch (error) {
+          console.error('Error saving migrated data:', error);
+        }
+        
+        return migratedData;
       default:
         console.warn(`Unknown schema version: ${data.version}, using current data as-is`);
-        return {
+        const updatedData = {
           ...data,
           version: CURRENT_SCHEMA_VERSION,
           lastUpdated: new Date().toISOString(),
         };
+        
+        // Save updated data directly to avoid recursion
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedData));
+        } catch (error) {
+          console.error('Error saving updated data:', error);
+        }
+        
+        return updatedData;
     }
   }
 
@@ -117,9 +152,13 @@ export class StorageManager {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Save the migrated data and remove legacy key
-    this.saveStorageData(migratedData);
-    localStorage.removeItem(this.LEGACY_DASHBOARDS_KEY);
+    // Save the migrated data directly and remove legacy key
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(migratedData));
+      localStorage.removeItem(this.LEGACY_DASHBOARDS_KEY);
+    } catch (error) {
+      console.error('Error saving migrated legacy data:', error);
+    }
 
     return migratedData;
   }
@@ -194,7 +233,8 @@ export class StorageManager {
     try {
       const data = JSON.parse(jsonData) as StorageSchema;
       const migratedData = this.migrateIfNeeded(data);
-      this.saveStorageData(migratedData);
+      // Use direct localStorage write to avoid recursion
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(migratedData));
       return true;
     } catch (error) {
       console.error('Error importing data:', error);
