@@ -28,7 +28,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { SettingsPageSkeleton, DashboardListSkeleton } from './SkeletonLoader';
-import { LoadingSpinner, InlineLoader } from './LoadingSpinner';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface DashboardForm {
   name: string;

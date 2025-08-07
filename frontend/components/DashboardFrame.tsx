@@ -17,8 +17,8 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
   const [retryCount, setRetryCount] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const progressRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const maxRetries = 3;
   const loadTimeout = 15000; // 15 seconds
@@ -48,12 +48,14 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
       if (progressRef.current) {
         clearInterval(progressRef.current);
+        progressRef.current = null;
       }
     };
-  }, [dashboard.url, retryCount]);
+  }, [dashboard.url, retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoad = () => {
     setIsLoading(false);
@@ -62,9 +64,11 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
     
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     if (progressRef.current) {
       clearInterval(progressRef.current);
+      progressRef.current = null;
     }
     
     // Complete the progress bar
@@ -78,9 +82,11 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
     
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     if (progressRef.current) {
       clearInterval(progressRef.current);
+      progressRef.current = null;
     }
   };
 

@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 
 export function useUserActivity(timeoutMs: number = 5000) {
   const [isActive, setIsActive] = useState(true);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const resetTimeout = () => {
       setIsActive(true);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
       timeoutRef.current = setTimeout(() => {
         setIsActive(false);
@@ -32,6 +33,7 @@ export function useUserActivity(timeoutMs: number = 5000) {
       });
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [timeoutMs]);

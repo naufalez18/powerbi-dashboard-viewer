@@ -11,11 +11,6 @@ interface StorageSchema {
   lastUpdated: string;
 }
 
-interface LegacyDashboardStorage {
-  // Legacy format (pre-versioning)
-  dashboards?: Dashboard[];
-}
-
 export class StorageManager {
   private static readonly STORAGE_KEY = 'powerbi-dashboard-app';
   private static readonly LEGACY_DASHBOARDS_KEY = 'powerbi-dashboards';

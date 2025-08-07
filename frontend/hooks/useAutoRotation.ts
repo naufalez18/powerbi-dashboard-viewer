@@ -5,8 +5,7 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean, 
   const [currentDashboardIndex, setCurrentDashboardIndex] = useState(0);
   const [isRotating, setIsRotating] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(rotationIntervalSeconds);
-  const intervalRef = useRef<NodeJS.Timeout>();
-  const countdownRef = useRef<NodeJS.Timeout>();
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startRotation = useCallback(() => {
     setIsRotating(true);
@@ -15,11 +14,9 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean, 
 
   const stopRotation = useCallback(() => {
     setIsRotating(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
+      countdownRef.current = null;
     }
   }, []);
 
@@ -53,12 +50,14 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean, 
       return () => {
         if (countdownRef.current) {
           clearInterval(countdownRef.current);
+          countdownRef.current = null;
         }
       };
     } else {
       // Pause countdown when user is active
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
+        countdownRef.current = null;
       }
     }
   }, [isRotating, isUserActive, dashboards.length, nextDashboard, rotationIntervalSeconds]);
