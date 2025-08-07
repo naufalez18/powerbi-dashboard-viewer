@@ -25,7 +25,6 @@ import { DashboardFrame } from './DashboardFrame';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NavigationSkeleton } from './SkeletonLoader';
 import { FullPageLoader } from './LoadingSpinner';
-import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function DashboardPage() {
   const { isAuthenticated, logout } = useAuth();
@@ -213,22 +212,9 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-3">
-                      <img 
-                        src={mandiriLogo} 
-                        alt="Mandiri Logo" 
-                        className="h-8 w-auto object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = document.createElement('div');
-                          fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
-                          fallback.textContent = 'REO';
-                          fallback.setAttribute('aria-label', 'REO Logo');
-                          if (target.parentNode) {
-                            target.parentNode.appendChild(fallback);
-                          }
-                        }}
-                      />
+                      <div className="h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">
+                        REO
+                      </div>
                       <h1 className="text-xl font-semibold text-gray-900">
                         REO Dashboard Viewer
                       </h1>

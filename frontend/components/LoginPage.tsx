@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LoadingSpinner } from './LoadingSpinner';
-import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -81,22 +80,9 @@ export default function LoginPage() {
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 bg-white rounded-full shadow-sm">
-                <img 
-                  src={mandiriLogo} 
-                  alt="Mandiri Logo" 
-                  className="h-12 w-auto object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = document.createElement('div');
-                    fallback.className = 'h-12 w-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm';
-                    fallback.textContent = 'REO';
-                    fallback.setAttribute('aria-label', 'REO Logo');
-                    if (target.parentNode) {
-                      target.parentNode.appendChild(fallback);
-                    }
-                  }}
-                />
+                <div className="h-12 w-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm">
+                  REO
+                </div>
               </div>
             </div>
             <CardTitle className="text-2xl font-bold text-gray-900">

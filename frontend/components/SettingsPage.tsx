@@ -29,7 +29,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { SettingsPageSkeleton, DashboardListSkeleton } from './SkeletonLoader';
 import { LoadingSpinner, InlineLoader } from './LoadingSpinner';
-import mandiriLogo from '../assets/mandiri-logo.png';
 
 interface DashboardForm {
   name: string;
@@ -323,22 +322,9 @@ export default function SettingsPage() {
               </Button>
               
               <div className="flex items-center space-x-3">
-                <img 
-                  src={mandiriLogo} 
-                  alt="Mandiri Logo" 
-                  className="h-8 w-auto object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = document.createElement('div');
-                    fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
-                    fallback.textContent = 'REO';
-                    fallback.setAttribute('aria-label', 'REO Logo');
-                    if (target.parentNode) {
-                      target.parentNode.appendChild(fallback);
-                    }
-                  }}
-                />
+                <div className="h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">
+                  REO
+                </div>
                 <h1 className="text-xl font-semibold text-gray-900">
                   Dashboard Settings
                 </h1>
