@@ -23,6 +23,8 @@ import { useUserActivity } from '../hooks/useUserActivity';
 import { useAutoRotation } from '../hooks/useAutoRotation';
 import { DashboardFrame } from './DashboardFrame';
 import { ErrorBoundary } from './ErrorBoundary';
+import { NavigationSkeleton } from './SkeletonLoader';
+import { FullPageLoader } from './LoadingSpinner';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function DashboardPage() {
@@ -34,6 +36,8 @@ export default function DashboardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNavigation, setShowNavigation] = useState(true);
   const [selectedDashboard, setSelectedDashboard] = useState('');
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isNavigationLoading, setIsNavigationLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const isUserActive = useUserActivity();
@@ -51,6 +55,15 @@ export default function DashboardPage() {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    // Simulate initial loading
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (dashboards.length > 0 && !selectedDashboard) {
@@ -96,6 +109,21 @@ export default function DashboardPage() {
     }
   };
 
+  const handleNavigationToggle = () => {
+    setIsNavigationLoading(true);
+    setTimeout(() => {
+      setShowNavigation(!showNavigation);
+      setIsNavigationLoading(false);
+    }, 150);
+  };
+
+  const handleSettingsNavigation = () => {
+    setIsNavigationLoading(true);
+    setTimeout(() => {
+      navigate('/settings');
+    }, 200);
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -111,7 +139,7 @@ export default function DashboardPage() {
             break;
           case 'h':
             event.preventDefault();
-            setShowNavigation(!showNavigation);
+            handleNavigationToggle();
             break;
           case 'r':
             event.preventDefault();
@@ -159,6 +187,10 @@ export default function DashboardPage() {
     return null;
   }
 
+  if (isInitialLoading) {
+    return <FullPageLoader text="Initializing Dashboard..." />;
+  }
+
   return (
     <ErrorBoundary>
       <div 
@@ -169,197 +201,205 @@ export default function DashboardPage() {
       >
         {/* Navigation Bar */}
         {showNavigation && (
-          <nav 
-            className="bg-white shadow-sm border-b border-gray-200 p-4"
-            role="navigation"
-            aria-label="Main navigation"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src={mandiriLogo} 
-                    alt="Mandiri Logo" 
-                    className="h-8 w-auto object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const fallback = document.createElement('div');
-                      fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
-                      fallback.textContent = 'REO';
-                      fallback.setAttribute('aria-label', 'REO Logo');
-                      if (target.parentNode) {
-                        target.parentNode.appendChild(fallback);
-                      }
-                    }}
-                  />
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    REO Dashboard Viewer
-                  </h1>
-                </div>
-                <Badge 
-                  variant={isUserActive ? "default" : "secondary"}
-                  aria-label={`User status: ${isUserActive ? "Active" : "Idle"}`}
-                >
-                  {isUserActive ? "Active" : "Idle"}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                {/* Dashboard Selector */}
-                <div className="flex items-center space-x-2">
-                  <label 
-                    htmlFor="dashboard-select"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Dashboard:
-                  </label>
-                  <Select 
-                    value={selectedDashboard} 
-                    onValueChange={setSelectedDashboard}
-                  >
-                    <SelectTrigger 
-                      className="w-48"
-                      id="dashboard-select"
-                      aria-label="Select dashboard to view"
+          <>
+            {isNavigationLoading ? (
+              <NavigationSkeleton />
+            ) : (
+              <nav 
+                className="bg-white shadow-sm border-b border-gray-200 p-4"
+                role="navigation"
+                aria-label="Main navigation"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={mandiriLogo} 
+                        alt="Mandiri Logo" 
+                        className="h-8 w-auto object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = document.createElement('div');
+                          fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
+                          fallback.textContent = 'REO';
+                          fallback.setAttribute('aria-label', 'REO Logo');
+                          if (target.parentNode) {
+                            target.parentNode.appendChild(fallback);
+                          }
+                        }}
+                      />
+                      <h1 className="text-xl font-semibold text-gray-900">
+                        REO Dashboard Viewer
+                      </h1>
+                    </div>
+                    <Badge 
+                      variant={isUserActive ? "default" : "secondary"}
+                      aria-label={`User status: ${isUserActive ? "Active" : "Idle"}`}
                     >
-                      <SelectValue placeholder="Select dashboard" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dashboards.map((dashboard) => (
-                        <SelectItem key={dashboard.id} value={dashboard.id}>
-                          {dashboard.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rotation Controls */}
-                {dashboards.length > 1 && (
-                  <div 
-                    className="flex items-center space-x-2"
-                    role="group"
-                    aria-label="Dashboard rotation controls"
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={isRotating ? stopRotation : startRotation}
-                      className="flex items-center space-x-1"
-                      aria-label={isRotating ? "Pause automatic rotation" : "Start automatic rotation"}
-                      title={`${isRotating ? "Pause" : "Start"} rotation (Ctrl+R)`}
-                    >
-                      {isRotating ? (
-                        <>
-                          <Pause className="h-4 w-4" />
-                          <span>Pause</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4" />
-                          <span>Start</span>
-                        </>
-                      )}
-                    </Button>
-                    
-                    {isRotating && (
-                      <Badge 
-                        variant="outline" 
-                        className="text-xs"
-                        aria-label={`Next dashboard in ${formatTime(timeRemaining)}`}
+                      {isUserActive ? "Active" : "Idle"}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    {/* Dashboard Selector */}
+                    <div className="flex items-center space-x-2">
+                      <label 
+                        htmlFor="dashboard-select"
+                        className="text-sm font-medium text-gray-700"
                       >
-                        Next: {formatTime(timeRemaining)}
-                      </Badge>
+                        Dashboard:
+                      </label>
+                      <Select 
+                        value={selectedDashboard} 
+                        onValueChange={setSelectedDashboard}
+                      >
+                        <SelectTrigger 
+                          className="w-48"
+                          id="dashboard-select"
+                          aria-label="Select dashboard to view"
+                        >
+                          <SelectValue placeholder="Select dashboard" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dashboards.map((dashboard) => (
+                            <SelectItem key={dashboard.id} value={dashboard.id}>
+                              {dashboard.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Rotation Controls */}
+                    {dashboards.length > 1 && (
+                      <div 
+                        className="flex items-center space-x-2"
+                        role="group"
+                        aria-label="Dashboard rotation controls"
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={isRotating ? stopRotation : startRotation}
+                          className="flex items-center space-x-1"
+                          aria-label={isRotating ? "Pause automatic rotation" : "Start automatic rotation"}
+                          title={`${isRotating ? "Pause" : "Start"} rotation (Ctrl+R)`}
+                        >
+                          {isRotating ? (
+                            <>
+                              <Pause className="h-4 w-4" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4" />
+                              <span>Start</span>
+                            </>
+                          )}
+                        </Button>
+                        
+                        {isRotating && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs"
+                            aria-label={`Next dashboard in ${formatTime(timeRemaining)}`}
+                          >
+                            Next: {formatTime(timeRemaining)}
+                          </Badge>
+                        )}
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={nextDashboard}
+                          className="flex items-center space-x-1"
+                          aria-label="Go to next dashboard"
+                          title="Next dashboard (Ctrl+N)"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          <span>Next</span>
+                        </Button>
+                      </div>
                     )}
-                    
+
+                    {/* View Controls */}
+                    <div 
+                      className="flex items-center space-x-2"
+                      role="group"
+                      aria-label="View controls"
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSettingsNavigation}
+                        className="flex items-center space-x-1"
+                        aria-label="Open settings page"
+                        disabled={isNavigationLoading}
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>Settings</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNavigationToggle}
+                        className="flex items-center space-x-1"
+                        aria-label={showNavigation ? "Hide navigation bar" : "Show navigation bar"}
+                        title={`${showNavigation ? "Hide" : "Show"} navigation (Ctrl+H)`}
+                        disabled={isNavigationLoading}
+                      >
+                        {showNavigation ? (
+                          <>
+                            <EyeOff className="h-4 w-4" />
+                            <span>Hide Nav</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4" />
+                            <span>Show Nav</span>
+                          </>
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleFullscreen}
+                        className="flex items-center space-x-1"
+                        aria-label={isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"}
+                        title={`${isFullscreen ? "Exit" : "Enter"} fullscreen (Ctrl+F)`}
+                      >
+                        {isFullscreen ? (
+                          <>
+                            <Minimize className="h-4 w-4" />
+                            <span>Exit Fullscreen</span>
+                          </>
+                        ) : (
+                          <>
+                            <Maximize className="h-4 w-4" />
+                            <span>Fullscreen</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={nextDashboard}
+                      onClick={handleLogout}
                       className="flex items-center space-x-1"
-                      aria-label="Go to next dashboard"
-                      title="Next dashboard (Ctrl+N)"
+                      aria-label="Logout from application"
                     >
-                      <RotateCcw className="h-4 w-4" />
-                      <span>Next</span>
+                      <LogOut className="h-4 w-4" />
+                      <span>Logout</span>
                     </Button>
                   </div>
-                )}
-
-                {/* View Controls */}
-                <div 
-                  className="flex items-center space-x-2"
-                  role="group"
-                  aria-label="View controls"
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/settings')}
-                    className="flex items-center space-x-1"
-                    aria-label="Open settings page"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Settings</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowNavigation(!showNavigation)}
-                    className="flex items-center space-x-1"
-                    aria-label={showNavigation ? "Hide navigation bar" : "Show navigation bar"}
-                    title={`${showNavigation ? "Hide" : "Show"} navigation (Ctrl+H)`}
-                  >
-                    {showNavigation ? (
-                      <>
-                        <EyeOff className="h-4 w-4" />
-                        <span>Hide Nav</span>
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="h-4 w-4" />
-                        <span>Show Nav</span>
-                      </>
-                    )}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleFullscreen}
-                    className="flex items-center space-x-1"
-                    aria-label={isFullscreen ? "Exit fullscreen mode" : "Enter fullscreen mode"}
-                    title={`${isFullscreen ? "Exit" : "Enter"} fullscreen (Ctrl+F)`}
-                  >
-                    {isFullscreen ? (
-                      <>
-                        <Minimize className="h-4 w-4" />
-                        <span>Exit Fullscreen</span>
-                      </>
-                    ) : (
-                      <>
-                        <Maximize className="h-4 w-4" />
-                        <span>Fullscreen</span>
-                      </>
-                    )}
-                  </Button>
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="flex items-center space-x-1"
-                  aria-label="Logout from application"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </Button>
-              </div>
-            </div>
-          </nav>
+              </nav>
+            )}
+          </>
         )}
 
         {/* Dashboard Content */}
@@ -413,9 +453,10 @@ export default function DashboardPage() {
                     }
                   </p>
                   <Button
-                    onClick={() => navigate('/settings')}
+                    onClick={handleSettingsNavigation}
                     className="w-full flex items-center space-x-2"
                     aria-label="Go to settings to configure dashboards"
+                    disabled={isNavigationLoading}
                   >
                     <Settings className="h-4 w-4" />
                     <span>Go to Settings</span>
@@ -431,10 +472,11 @@ export default function DashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowNavigation(true)}
+            onClick={handleNavigationToggle}
             className="fixed top-4 right-4 z-50 bg-white shadow-lg"
             aria-label="Show navigation bar"
             title="Show navigation (Ctrl+H)"
+            disabled={isNavigationLoading}
           >
             <Eye className="h-4 w-4" />
           </Button>

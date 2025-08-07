@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import { ErrorBoundary } from './ErrorBoundary';
+import { LoadingSpinner } from './LoadingSpinner';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function LoginPage() {
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -25,22 +27,52 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    // Simulate initial page load
+    const timer = setTimeout(() => {
+      setIsPageLoading(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate loading delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Simulate authentication delay
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     const success = login(username, password);
     if (success) {
+      // Add a small delay before navigation for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
       navigate('/dashboard');
     } else {
       setError('Invalid username or password');
     }
     setIsLoading(false);
   };
+
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="p-8">
+            <div className="text-center space-y-4">
+              <div className="h-16 w-16 bg-gray-200 rounded-full mx-auto animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-6 w-32 bg-gray-200 rounded mx-auto animate-pulse" />
+                <div className="h-4 w-48 bg-gray-200 rounded mx-auto animate-pulse" />
+              </div>
+              <LoadingSpinner size="md" text="Loading..." />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -88,6 +120,7 @@ export default function LoginPage() {
                   className="w-full"
                   aria-describedby={error ? 'login-error' : undefined}
                   aria-invalid={!!error}
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -103,12 +136,14 @@ export default function LoginPage() {
                     className="w-full pr-10"
                     aria-describedby={error ? 'login-error' : undefined}
                     aria-invalid={!!error}
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -125,11 +160,18 @@ export default function LoginPage() {
               )}
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full flex items-center justify-center space-x-2"
                 disabled={isLoading}
                 aria-describedby={isLoading ? 'loading-status' : undefined}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Sign In</span>
+                )}
               </Button>
               {isLoading && (
                 <div id="loading-status" className="sr-only" aria-live="polite">

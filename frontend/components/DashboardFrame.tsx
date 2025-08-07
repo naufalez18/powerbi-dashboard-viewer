@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Dashboard } from '../contexts/DashboardContext';
+import { DashboardSkeleton } from './SkeletonLoader';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface DashboardFrameProps {
   dashboard: Dashboard;
@@ -13,8 +15,10 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const progressRef = useRef<NodeJS.Timeout>();
 
   const maxRetries = 3;
   const loadTimeout = 15000; // 15 seconds
@@ -22,12 +26,22 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
   useEffect(() => {
     setIsLoading(true);
     setHasError(false);
+    setLoadingProgress(0);
+    
+    // Simulate loading progress
+    let progress = 0;
+    progressRef.current = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress > 90) progress = 90; // Don't complete until actual load
+      setLoadingProgress(progress);
+    }, 200);
     
     // Set a timeout for loading
     timeoutRef.current = setTimeout(() => {
       if (isLoading) {
         setHasError(true);
         setIsLoading(false);
+        setLoadingProgress(0);
       }
     }, loadTimeout);
 
@@ -35,22 +49,38 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
+      if (progressRef.current) {
+        clearInterval(progressRef.current);
+      }
     };
   }, [dashboard.url, retryCount]);
 
   const handleLoad = () => {
     setIsLoading(false);
     setHasError(false);
+    setLoadingProgress(100);
+    
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    if (progressRef.current) {
+      clearInterval(progressRef.current);
+    }
+    
+    // Complete the progress bar
+    setTimeout(() => setLoadingProgress(0), 500);
   };
 
   const handleError = () => {
     setIsLoading(false);
     setHasError(true);
+    setLoadingProgress(0);
+    
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+    }
+    if (progressRef.current) {
+      clearInterval(progressRef.current);
     }
   };
 
@@ -110,12 +140,33 @@ export function DashboardFrame({ dashboard, className = '' }: DashboardFrameProp
   return (
     <div className={`relative h-full ${className}`}>
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <div className="text-center">
-              <p className="text-lg font-medium text-gray-900">Loading Dashboard</p>
-              <p className="text-sm text-gray-600">"{dashboard.name}"</p>
+        <div className="absolute inset-0 bg-white z-10">
+          {/* Progress bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200">
+            <div 
+              className="h-full bg-blue-600 transition-all duration-300 ease-out"
+              style={{ width: `${loadingProgress}%` }}
+            />
+          </div>
+          
+          {/* Loading content */}
+          <div className="h-full">
+            <DashboardSkeleton />
+            
+            {/* Loading overlay */}
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <LoadingSpinner size="lg" />
+                <div className="space-y-2">
+                  <p className="text-lg font-medium text-gray-900">Loading Dashboard</p>
+                  <p className="text-sm text-gray-600">"{dashboard.name}"</p>
+                  <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
+                    <span>Progress: {Math.round(loadingProgress)}%</span>
+                    <span>•</span>
+                    <span>Please wait...</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

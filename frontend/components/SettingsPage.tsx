@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
+import { SettingsPageSkeleton, DashboardListSkeleton } from './SkeletonLoader';
+import { LoadingSpinner, InlineLoader } from './LoadingSpinner';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 interface DashboardForm {
@@ -58,6 +60,11 @@ export default function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<DashboardForm>({ name: '', url: '' });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isDashboardsLoading, setIsDashboardsLoading] = useState(false);
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   React.useEffect(() => {
     if (!isAuthenticated) {
@@ -66,11 +73,28 @@ export default function SettingsPage() {
   }, [isAuthenticated, navigate]);
 
   React.useEffect(() => {
-    // Check health of all dashboards on mount
-    dashboards.forEach(dashboard => {
-      checkHealth(dashboard.id, dashboard.url);
-    });
-  }, [dashboards, checkHealth]);
+    // Simulate initial loading
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isInitialLoading) {
+      // Check health of all dashboards on mount
+      setIsDashboardsLoading(true);
+      const timer = setTimeout(() => {
+        dashboards.forEach(dashboard => {
+          checkHealth(dashboard.id, dashboard.url);
+        });
+        setIsDashboardsLoading(false);
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [dashboards, checkHealth, isInitialLoading]);
 
   const validateForm = (data: DashboardForm): FormErrors => {
     const errors: FormErrors = {};
@@ -110,7 +134,7 @@ export default function SettingsPage() {
     return errors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const trimmedData = {
@@ -122,6 +146,11 @@ export default function SettingsPage() {
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
+      setIsFormSubmitting(true);
+      
+      // Simulate form submission delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       if (editingId) {
         updateDashboard(editingId, trimmedData);
         toast({
@@ -132,7 +161,9 @@ export default function SettingsPage() {
       } else {
         const newDashboard = addDashboard(trimmedData);
         // Check health of new dashboard
-        checkHealth(newDashboard.id, newDashboard.url);
+        setTimeout(() => {
+          checkHealth(newDashboard.id, newDashboard.url);
+        }, 100);
         toast({
           title: "Dashboard Added",
           description: `"${trimmedData.name}" has been added successfully.`,
@@ -140,6 +171,7 @@ export default function SettingsPage() {
         setIsAddingNew(false);
       }
       setFormData({ name: '', url: '' });
+      setIsFormSubmitting(false);
     }
   };
 
@@ -150,14 +182,20 @@ export default function SettingsPage() {
     setIsAddingNew(false);
   };
 
-  const handleDelete = (dashboard: Dashboard) => {
+  const handleDelete = async (dashboard: Dashboard) => {
     if (window.confirm(`Are you sure you want to delete "${dashboard.name}"?`)) {
+      setDeletingId(dashboard.id);
+      
+      // Simulate deletion delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       deleteDashboard(dashboard.id);
       toast({
         title: "Dashboard Deleted",
         description: `"${dashboard.name}" has been deleted.`,
         variant: "destructive",
       });
+      setDeletingId(null);
     }
   };
 
@@ -181,6 +219,13 @@ export default function SettingsPage() {
       title: "Settings Updated",
       description: `Rotation interval set to ${rotationOptions.find(opt => opt.value === parseInt(value))?.label}.`,
     });
+  };
+
+  const handleBackToDashboard = () => {
+    setIsNavigating(true);
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 200);
   };
 
   const getHealthStatusIcon = (dashboardId: string) => {
@@ -218,9 +263,14 @@ export default function SettingsPage() {
   };
 
   const handleRefreshHealth = () => {
-    dashboards.forEach(dashboard => {
-      checkHealth(dashboard.id, dashboard.url);
-    });
+    setIsDashboardsLoading(true);
+    setTimeout(() => {
+      dashboards.forEach(dashboard => {
+        checkHealth(dashboard.id, dashboard.url);
+      });
+      setIsDashboardsLoading(false);
+    }, 200);
+    
     toast({
       title: "Health Check Started",
       description: "Checking the status of all dashboards...",
@@ -229,6 +279,20 @@ export default function SettingsPage() {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <nav className="bg-white shadow-sm border-b border-gray-200 p-4">
+          <div className="flex items-center space-x-4">
+            <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </nav>
+        <SettingsPageSkeleton />
+      </div>
+    );
   }
 
   return (
@@ -245,11 +309,16 @@ export default function SettingsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/dashboard')}
+                onClick={handleBackToDashboard}
                 className="flex items-center space-x-2"
                 aria-label="Return to dashboard"
+                disabled={isNavigating}
               >
-                <ArrowLeft className="h-4 w-4" />
+                {isNavigating ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <ArrowLeft className="h-4 w-4" />
+                )}
                 <span>Back to Dashboard</span>
               </Button>
               
@@ -335,16 +404,16 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleRefreshHealth}
-                  disabled={isChecking}
+                  disabled={isChecking || isDashboardsLoading}
                   className="flex items-center space-x-2"
                   aria-label="Refresh health status of all dashboards"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${(isChecking || isDashboardsLoading) ? 'animate-spin' : ''}`} />
                   <span>Check Health</span>
                 </Button>
                 <Button
                   onClick={handleAddNew}
-                  disabled={isAddingNew || editingId !== null}
+                  disabled={isAddingNew || editingId !== null || isFormSubmitting}
                   className="flex items-center space-x-2"
                   aria-label="Add new dashboard"
                 >
@@ -377,6 +446,7 @@ export default function SettingsPage() {
                         className={errors.name ? 'border-red-500' : ''}
                         aria-describedby={errors.name ? 'name-error' : undefined}
                         aria-invalid={!!errors.name}
+                        disabled={isFormSubmitting}
                       />
                       {errors.name && (
                         <p id="name-error" className="text-sm text-red-600" role="alert">
@@ -396,6 +466,7 @@ export default function SettingsPage() {
                         className={errors.url ? 'border-red-500' : ''}
                         aria-describedby={errors.url ? 'url-error' : undefined}
                         aria-invalid={!!errors.url}
+                        disabled={isFormSubmitting}
                       />
                       {errors.url && (
                         <p id="url-error" className="text-sm text-red-600" role="alert">
@@ -413,8 +484,16 @@ export default function SettingsPage() {
                   </Alert>
 
                   <div className="flex items-center space-x-2">
-                    <Button type="submit" className="flex items-center space-x-2">
-                      <Save className="h-4 w-4" />
+                    <Button 
+                      type="submit" 
+                      className="flex items-center space-x-2"
+                      disabled={isFormSubmitting}
+                    >
+                      {isFormSubmitting ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       <span>{editingId ? 'Update' : 'Add'} Dashboard</span>
                     </Button>
                     <Button
@@ -422,6 +501,7 @@ export default function SettingsPage() {
                       variant="outline"
                       onClick={handleCancel}
                       className="flex items-center space-x-2"
+                      disabled={isFormSubmitting}
                     >
                       <X className="h-4 w-4" />
                       <span>Cancel</span>
@@ -438,7 +518,9 @@ export default function SettingsPage() {
               Current Dashboards ({dashboards.length})
             </h3>
             
-            {dashboards.length === 0 ? (
+            {isDashboardsLoading ? (
+              <DashboardListSkeleton />
+            ) : dashboards.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-8">
                   <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -450,6 +532,7 @@ export default function SettingsPage() {
                     onClick={handleAddNew} 
                     className="flex items-center space-x-2"
                     aria-label="Add your first dashboard"
+                    disabled={isAddingNew || editingId !== null}
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add Your First Dashboard</span>
@@ -461,7 +544,7 @@ export default function SettingsPage() {
                 {dashboards.map((dashboard) => (
                   <Card 
                     key={dashboard.id} 
-                    className={editingId === dashboard.id ? 'ring-2 ring-blue-500' : ''}
+                    className={`${editingId === dashboard.id ? 'ring-2 ring-blue-500' : ''} ${deletingId === dashboard.id ? 'opacity-50' : ''}`}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -505,7 +588,7 @@ export default function SettingsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => checkHealth(dashboard.id, dashboard.url)}
-                            disabled={isChecking}
+                            disabled={isChecking || deletingId === dashboard.id}
                             className="flex items-center space-x-1"
                             aria-label={`Check health status of ${dashboard.name}`}
                           >
@@ -516,7 +599,7 @@ export default function SettingsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEdit(dashboard)}
-                            disabled={isAddingNew || (editingId !== null && editingId !== dashboard.id)}
+                            disabled={isAddingNew || (editingId !== null && editingId !== dashboard.id) || isFormSubmitting || deletingId === dashboard.id}
                             className="flex items-center space-x-1"
                             aria-label={`Edit ${dashboard.name}`}
                           >
@@ -527,11 +610,15 @@ export default function SettingsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDelete(dashboard)}
-                            disabled={isAddingNew || editingId !== null}
+                            disabled={isAddingNew || editingId !== null || isFormSubmitting || deletingId !== null}
                             className="flex items-center space-x-1 text-red-600 hover:text-red-800"
                             aria-label={`Delete ${dashboard.name}`}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {deletingId === dashboard.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
                             <span>Delete</span>
                           </Button>
                         </div>
