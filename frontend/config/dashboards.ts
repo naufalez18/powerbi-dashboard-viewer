@@ -21,9 +21,4 @@ export const powerBiDashboards: Dashboard[] = [
     name: 'Financial Dashboard',
     url: 'https://app.powerbi.com/view?r=eyJrIjoiMzZhYmJmODMtMDRhNC00OTMwLWI0OWYtNTc5OWIzY2I1Yjc1IiwidCI6IjRiZGJiZTdkLTYzZGYtNGU1Yy05NTNlLTkyODYzMTY4OTVlNiIsImMiOjEwfQ%3D%3D',
   },
-  {
-    id: 'dashboard-4',
-    name: 'Operations Dashboard',
-    url: 'https://app.powerbi.com/view?r=eyJrIjoianBxcnN0dXYtd3h5ei0xMjM0LTU2NzgtOWFiY2RlZmdoaSIsInQiOiJjMDFhMmIzYy00ZDVlLTZmN2ctOGg5aS0wajFrMmwzbTRuNW8ifQ%3D%3D',
-  },
 ];
