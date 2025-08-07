@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dashboard } from '../contexts/DashboardContext';
 
-export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) {
+export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean, rotationIntervalSeconds: number = 60) {
   const [currentDashboardIndex, setCurrentDashboardIndex] = useState(0);
   const [isRotating, setIsRotating] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(60); // 1 minute in seconds
+  const [timeRemaining, setTimeRemaining] = useState(rotationIntervalSeconds);
   const intervalRef = useRef<NodeJS.Timeout>();
   const countdownRef = useRef<NodeJS.Timeout>();
 
-  const ROTATION_INTERVAL = 60000; // 1 minute in milliseconds
-
   const startRotation = useCallback(() => {
     setIsRotating(true);
-    setTimeRemaining(60);
-  }, []);
+    setTimeRemaining(rotationIntervalSeconds);
+  }, [rotationIntervalSeconds]);
 
   const stopRotation = useCallback(() => {
     setIsRotating(false);
@@ -28,9 +26,16 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) 
   const nextDashboard = useCallback(() => {
     if (dashboards.length > 0) {
       setCurrentDashboardIndex((prev) => (prev + 1) % dashboards.length);
-      setTimeRemaining(60);
+      setTimeRemaining(rotationIntervalSeconds);
     }
-  }, [dashboards.length]);
+  }, [dashboards.length, rotationIntervalSeconds]);
+
+  // Update time remaining when rotation interval changes
+  useEffect(() => {
+    if (isRotating) {
+      setTimeRemaining(rotationIntervalSeconds);
+    }
+  }, [rotationIntervalSeconds, isRotating]);
 
   useEffect(() => {
     if (isRotating && !isUserActive && dashboards.length > 1) {
@@ -39,7 +44,7 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) 
         setTimeRemaining((prev) => {
           if (prev <= 1) {
             nextDashboard();
-            return 60;
+            return rotationIntervalSeconds;
           }
           return prev - 1;
         });
@@ -56,14 +61,14 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) 
         clearInterval(countdownRef.current);
       }
     }
-  }, [isRotating, isUserActive, dashboards.length, nextDashboard]);
+  }, [isRotating, isUserActive, dashboards.length, nextDashboard, rotationIntervalSeconds]);
 
   // Reset countdown when user becomes active
   useEffect(() => {
     if (isUserActive && isRotating) {
-      setTimeRemaining(60);
+      setTimeRemaining(rotationIntervalSeconds);
     }
-  }, [isUserActive, isRotating]);
+  }, [isUserActive, isRotating, rotationIntervalSeconds]);
 
   // Reset index if it's out of bounds (e.g., after deleting dashboards)
   useEffect(() => {

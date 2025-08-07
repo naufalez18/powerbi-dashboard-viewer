@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
+import { ErrorBoundary } from './ErrorBoundary';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function LoginPage() {
@@ -42,90 +43,103 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-white rounded-full shadow-sm">
-              <img 
-                src={mandiriLogo} 
-                alt="Mandiri Logo" 
-                className="h-12 w-auto object-contain"
-                onError={(e) => {
-                  // Fallback to a simple colored div if image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const fallback = document.createElement('div');
-                  fallback.className = 'h-12 w-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm';
-                  fallback.textContent = 'REO';
-                  if (target.parentNode) {
-                    target.parentNode.appendChild(fallback);
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            REO Dashboard
-          </CardTitle>
-          <CardDescription className="text-gray-600">
-            Sign in to access your dashboards
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                required
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="w-full pr-10"
+    <ErrorBoundary>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-white rounded-full shadow-sm">
+                <img 
+                  src={mandiriLogo} 
+                  alt="Mandiri Logo" 
+                  className="h-12 w-auto object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = 'h-12 w-16 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-sm';
+                    fallback.textContent = 'REO';
+                    fallback.setAttribute('aria-label', 'REO Logo');
+                    if (target.parentNode) {
+                      target.parentNode.appendChild(fallback);
+                    }
+                  }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
               </div>
             </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              REO Dashboard
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Sign in to access your dashboards
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
+                  required
+                  className="w-full"
+                  aria-describedby={error ? 'login-error' : undefined}
+                  aria-invalid={!!error}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    className="w-full pr-10"
+                    aria-describedby={error ? 'login-error' : undefined}
+                    aria-invalid={!!error}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              {error && (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription id="login-error">{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+                aria-describedby={isLoading ? 'loading-status' : undefined}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              {isLoading && (
+                <div id="loading-status" className="sr-only" aria-live="polite">
+                  Signing in, please wait...
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </ErrorBoundary>
   );
 }

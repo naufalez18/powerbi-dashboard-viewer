@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboards, Dashboard } from '../contexts/DashboardContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { useDashboardHealth } from '../hooks/useDashboardHealth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
   Plus, 
@@ -15,9 +19,14 @@ import {
   Save, 
   X,
   ExternalLink,
-  Settings
+  Settings,
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { ErrorBoundary } from './ErrorBoundary';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 interface DashboardForm {
@@ -30,9 +39,18 @@ interface FormErrors {
   url?: string;
 }
 
+const rotationOptions = [
+  { value: 30, label: '30 seconds' },
+  { value: 60, label: '1 minute' },
+  { value: 120, label: '2 minutes' },
+  { value: 300, label: '5 minutes' },
+];
+
 export default function SettingsPage() {
   const { isAuthenticated } = useAuth();
   const { dashboards, addDashboard, updateDashboard, deleteDashboard } = useDashboards();
+  const { settings, updateSettings } = useSettings();
+  const { healthStatus, checkHealth, isChecking } = useDashboardHealth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -46,6 +64,13 @@ export default function SettingsPage() {
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
+
+  React.useEffect(() => {
+    // Check health of all dashboards on mount
+    dashboards.forEach(dashboard => {
+      checkHealth(dashboard.id, dashboard.url);
+    });
+  }, [dashboards, checkHealth]);
 
   const validateForm = (data: DashboardForm): FormErrors => {
     const errors: FormErrors = {};
@@ -67,10 +92,6 @@ export default function SettingsPage() {
         const url = new URL(data.url);
         if (!['http:', 'https:'].includes(url.protocol)) {
           errors.url = 'URL must use HTTP or HTTPS protocol';
-        }
-        // Check if it's a Power BI URL (optional validation)
-        if (!data.url.includes('powerbi.com') && !data.url.includes('app.powerbi.com')) {
-          // This is a warning, not an error - we'll allow non-Power BI URLs
         }
       } catch {
         errors.url = 'Please enter a valid URL';
@@ -109,7 +130,9 @@ export default function SettingsPage() {
         });
         setEditingId(null);
       } else {
-        addDashboard(trimmedData);
+        const newDashboard = addDashboard(trimmedData);
+        // Check health of new dashboard
+        checkHealth(newDashboard.id, newDashboard.url);
         toast({
           title: "Dashboard Added",
           description: `"${trimmedData.name}" has been added successfully.`,
@@ -152,215 +175,375 @@ export default function SettingsPage() {
     setErrors({});
   };
 
+  const handleRotationIntervalChange = (value: string) => {
+    updateSettings({ rotationInterval: parseInt(value) });
+    toast({
+      title: "Settings Updated",
+      description: `Rotation interval set to ${rotationOptions.find(opt => opt.value === parseInt(value))?.label}.`,
+    });
+  };
+
+  const getHealthStatusIcon = (dashboardId: string) => {
+    const status = healthStatus[dashboardId];
+    if (!status) {
+      return <Clock className="h-4 w-4 text-gray-400" aria-label="Status unknown" />;
+    }
+
+    switch (status.status) {
+      case 'online':
+        return <CheckCircle className="h-4 w-4 text-green-600" aria-label="Online" />;
+      case 'offline':
+        return <XCircle className="h-4 w-4 text-red-600" aria-label="Offline" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-600" aria-label="Error" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-400" aria-label="Checking" />;
+    }
+  };
+
+  const getHealthStatusText = (dashboardId: string) => {
+    const status = healthStatus[dashboardId];
+    if (!status) return 'Unknown';
+    
+    switch (status.status) {
+      case 'online':
+        return 'Online';
+      case 'offline':
+        return 'Offline';
+      case 'error':
+        return `Error: ${status.error}`;
+      default:
+        return 'Checking...';
+    }
+  };
+
+  const handleRefreshHealth = () => {
+    dashboards.forEach(dashboard => {
+      checkHealth(dashboard.id, dashboard.url);
+    });
+    toast({
+      title: "Health Check Started",
+      description: "Checking the status of all dashboards...",
+    });
+  };
+
   if (!isAuthenticated) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center space-x-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Dashboard</span>
-            </Button>
-            
-            <div className="flex items-center space-x-3">
-              <img 
-                src={mandiriLogo} 
-                alt="Mandiri Logo" 
-                className="h-8 w-auto object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const fallback = document.createElement('div');
-                  fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
-                  fallback.textContent = 'REO';
-                  if (target.parentNode) {
-                    target.parentNode.appendChild(fallback);
-                  }
-                }}
-              />
-              <h1 className="text-xl font-semibold text-gray-900">
-                Dashboard Settings
-              </h1>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-6">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation Bar */}
+        <nav 
+          className="bg-white shadow-sm border-b border-gray-200 p-4"
+          role="navigation"
+          aria-label="Settings navigation"
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                <Settings className="h-6 w-6" />
-                <span>Manage Dashboards</span>
-              </h2>
-              <p className="text-gray-600 mt-1">
-                Add, edit, or remove Power BI dashboard URLs
-              </p>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2"
+                aria-label="Return to dashboard"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to Dashboard</span>
+              </Button>
+              
+              <div className="flex items-center space-x-3">
+                <img 
+                  src={mandiriLogo} 
+                  alt="Mandiri Logo" 
+                  className="h-8 w-auto object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
+                    fallback.textContent = 'REO';
+                    fallback.setAttribute('aria-label', 'REO Logo');
+                    if (target.parentNode) {
+                      target.parentNode.appendChild(fallback);
+                    }
+                  }}
+                />
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Dashboard Settings
+                </h1>
+              </div>
             </div>
-            <Button
-              onClick={handleAddNew}
-              disabled={isAddingNew || editingId !== null}
-              className="flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Dashboard</span>
-            </Button>
           </div>
-        </div>
+        </nav>
 
-        {/* Add/Edit Form */}
-        {(isAddingNew || editingId) && (
+        {/* Main Content */}
+        <main className="max-w-4xl mx-auto p-6" role="main">
+          {/* General Settings */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>
-                {editingId ? 'Edit Dashboard' : 'Add New Dashboard'}
+              <CardTitle className="flex items-center space-x-2">
+                <Settings className="h-5 w-5" />
+                <span>General Settings</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Dashboard Name *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g., Sales Dashboard"
-                      className={errors.name ? 'border-red-500' : ''}
-                    />
-                    {errors.name && (
-                      <p className="text-sm text-red-600">{errors.name}</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="url">Dashboard URL *</Label>
-                    <Input
-                      id="url"
-                      type="url"
-                      value={formData.url}
-                      onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-                      placeholder="https://app.powerbi.com/view?r=..."
-                      className={errors.url ? 'border-red-500' : ''}
-                    />
-                    {errors.url && (
-                      <p className="text-sm text-red-600">{errors.url}</p>
-                    )}
-                  </div>
-                </div>
-
-                <Alert>
-                  <AlertDescription>
-                    <strong>Tip:</strong> To get the Power BI dashboard URL, open your dashboard in Power BI, 
-                    click "File" → "Embed" → "Website or portal" and copy the URL from the embed code.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex items-center space-x-2">
-                  <Button type="submit" className="flex items-center space-x-2">
-                    <Save className="h-4 w-4" />
-                    <span>{editingId ? 'Update' : 'Add'} Dashboard</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="flex items-center space-x-2"
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <Label htmlFor="rotation-interval" className="text-sm font-medium text-gray-700 min-w-0 flex-shrink-0">
+                    Auto-rotation interval:
+                  </Label>
+                  <Select 
+                    value={settings.rotationInterval.toString()} 
+                    onValueChange={handleRotationIntervalChange}
                   >
-                    <X className="h-4 w-4" />
-                    <span>Cancel</span>
-                  </Button>
+                    <SelectTrigger 
+                      className="w-48"
+                      id="rotation-interval"
+                      aria-label="Select rotation interval"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rotationOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value.toString()}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </form>
+              </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Dashboard List */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Current Dashboards ({dashboards.length})
-          </h3>
-          
-          {dashboards.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Dashboards</h3>
-                <p className="text-gray-600 mb-4">
-                  Get started by adding your first Power BI dashboard.
+          {/* Dashboard Management */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                  <Settings className="h-6 w-6" />
+                  <span>Manage Dashboards</span>
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  Add, edit, or remove Power BI dashboard URLs
                 </p>
-                <Button onClick={handleAddNew} className="flex items-center space-x-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Add Your First Dashboard</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshHealth}
+                  disabled={isChecking}
+                  className="flex items-center space-x-2"
+                  aria-label="Refresh health status of all dashboards"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                  <span>Check Health</span>
                 </Button>
+                <Button
+                  onClick={handleAddNew}
+                  disabled={isAddingNew || editingId !== null}
+                  className="flex items-center space-x-2"
+                  aria-label="Add new dashboard"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Dashboard</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Add/Edit Form */}
+          {(isAddingNew || editingId) && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>
+                  {editingId ? 'Edit Dashboard' : 'Add New Dashboard'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="dashboard-name">Dashboard Name *</Label>
+                      <Input
+                        id="dashboard-name"
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g., Sales Dashboard"
+                        className={errors.name ? 'border-red-500' : ''}
+                        aria-describedby={errors.name ? 'name-error' : undefined}
+                        aria-invalid={!!errors.name}
+                      />
+                      {errors.name && (
+                        <p id="name-error" className="text-sm text-red-600" role="alert">
+                          {errors.name}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="dashboard-url">Dashboard URL *</Label>
+                      <Input
+                        id="dashboard-url"
+                        type="url"
+                        value={formData.url}
+                        onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
+                        placeholder="https://app.powerbi.com/view?r=..."
+                        className={errors.url ? 'border-red-500' : ''}
+                        aria-describedby={errors.url ? 'url-error' : undefined}
+                        aria-invalid={!!errors.url}
+                      />
+                      {errors.url && (
+                        <p id="url-error" className="text-sm text-red-600" role="alert">
+                          {errors.url}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <Alert>
+                    <AlertDescription>
+                      <strong>Tip:</strong> To get the Power BI dashboard URL, open your dashboard in Power BI, 
+                      click "File" → "Embed" → "Website or portal" and copy the URL from the embed code.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="flex items-center space-x-2">
+                    <Button type="submit" className="flex items-center space-x-2">
+                      <Save className="h-4 w-4" />
+                      <span>{editingId ? 'Update' : 'Add'} Dashboard</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancel}
+                      className="flex items-center space-x-2"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Cancel</span>
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid gap-4">
-              {dashboards.map((dashboard) => (
-                <Card key={dashboard.id} className={editingId === dashboard.id ? 'ring-2 ring-blue-500' : ''}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{dashboard.name}</h4>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <p className="text-sm text-gray-600 truncate max-w-md">
-                            {dashboard.url}
-                          </p>
-                          <a
-                            href={dashboard.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800"
+          )}
+
+          {/* Dashboard List */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Current Dashboards ({dashboards.length})
+            </h3>
+            
+            {dashboards.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Dashboards</h3>
+                  <p className="text-gray-600 mb-4">
+                    Get started by adding your first Power BI dashboard.
+                  </p>
+                  <Button 
+                    onClick={handleAddNew} 
+                    className="flex items-center space-x-2"
+                    aria-label="Add your first dashboard"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Your First Dashboard</span>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {dashboards.map((dashboard) => (
+                  <Card 
+                    key={dashboard.id} 
+                    className={editingId === dashboard.id ? 'ring-2 ring-blue-500' : ''}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-medium text-gray-900">{dashboard.name}</h4>
+                            <div className="flex items-center space-x-1">
+                              {getHealthStatusIcon(dashboard.id)}
+                              <Badge 
+                                variant={
+                                  healthStatus[dashboard.id]?.status === 'online' 
+                                    ? 'default' 
+                                    : healthStatus[dashboard.id]?.status === 'offline' || healthStatus[dashboard.id]?.status === 'error'
+                                    ? 'destructive'
+                                    : 'secondary'
+                                }
+                                className="text-xs"
+                                aria-label={`Dashboard status: ${getHealthStatusText(dashboard.id)}`}
+                              >
+                                {getHealthStatusText(dashboard.id)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm text-gray-600 truncate max-w-md">
+                              {dashboard.url}
+                            </p>
+                            <a
+                              href={dashboard.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800"
+                              aria-label={`Open ${dashboard.name} in new tab`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => checkHealth(dashboard.id, dashboard.url)}
+                            disabled={isChecking}
+                            className="flex items-center space-x-1"
+                            aria-label={`Check health status of ${dashboard.name}`}
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                            <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+                            <span>Check</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(dashboard)}
+                            disabled={isAddingNew || (editingId !== null && editingId !== dashboard.id)}
+                            className="flex items-center space-x-1"
+                            aria-label={`Edit ${dashboard.name}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span>Edit</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(dashboard)}
+                            disabled={isAddingNew || editingId !== null}
+                            className="flex items-center space-x-1 text-red-600 hover:text-red-800"
+                            aria-label={`Delete ${dashboard.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete</span>
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(dashboard)}
-                          disabled={isAddingNew || (editingId !== null && editingId !== dashboard.id)}
-                          className="flex items-center space-x-1"
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span>Edit</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(dashboard)}
-                          disabled={isAddingNew || editingId !== null}
-                          className="flex items-center space-x-1 text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span>Delete</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }

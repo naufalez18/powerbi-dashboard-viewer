@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { StorageManager } from '../utils/storage';
 
 export interface Dashboard {
   id: string;
@@ -8,7 +9,7 @@ export interface Dashboard {
 
 interface DashboardContextType {
   dashboards: Dashboard[];
-  addDashboard: (dashboard: Omit<Dashboard, 'id'>) => void;
+  addDashboard: (dashboard: Omit<Dashboard, 'id'>) => Dashboard;
   updateDashboard: (id: string, dashboard: Omit<Dashboard, 'id'>) => void;
   deleteDashboard: (id: string) => void;
 }
@@ -50,15 +51,15 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
   // Load dashboards from localStorage on mount
   useEffect(() => {
-    const savedDashboards = localStorage.getItem('powerbi-dashboards');
-    if (savedDashboards) {
-      try {
-        setDashboards(JSON.parse(savedDashboards));
-      } catch (error) {
-        console.error('Error parsing saved dashboards:', error);
+    try {
+      const savedDashboards = StorageManager.getDashboards();
+      if (savedDashboards && savedDashboards.length > 0) {
+        setDashboards(savedDashboards);
+      } else {
         setDashboards(defaultDashboards);
       }
-    } else {
+    } catch (error) {
+      console.error('Error loading dashboards:', error);
       setDashboards(defaultDashboards);
     }
   }, []);
@@ -66,16 +67,21 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
   // Save dashboards to localStorage whenever they change
   useEffect(() => {
     if (dashboards.length > 0) {
-      localStorage.setItem('powerbi-dashboards', JSON.stringify(dashboards));
+      try {
+        StorageManager.saveDashboards(dashboards);
+      } catch (error) {
+        console.error('Error saving dashboards:', error);
+      }
     }
   }, [dashboards]);
 
-  const addDashboard = (dashboard: Omit<Dashboard, 'id'>) => {
+  const addDashboard = (dashboard: Omit<Dashboard, 'id'>): Dashboard => {
     const newDashboard: Dashboard = {
       ...dashboard,
       id: `dashboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     setDashboards(prev => [...prev, newDashboard]);
+    return newDashboard;
   };
 
   const updateDashboard = (id: string, updatedDashboard: Omit<Dashboard, 'id'>) => {
