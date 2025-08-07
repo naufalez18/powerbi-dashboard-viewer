@@ -1,0 +1,366 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useDashboards, Dashboard } from '../contexts/DashboardContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Save, 
+  X,
+  ExternalLink,
+  Settings
+} from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import mandiriLogo from '../assets/mandiri-logo.png';
+
+interface DashboardForm {
+  name: string;
+  url: string;
+}
+
+interface FormErrors {
+  name?: string;
+  url?: string;
+}
+
+export default function SettingsPage() {
+  const { isAuthenticated } = useAuth();
+  const { dashboards, addDashboard, updateDashboard, deleteDashboard } = useDashboards();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<DashboardForm>({ name: '', url: '' });
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const validateForm = (data: DashboardForm): FormErrors => {
+    const errors: FormErrors = {};
+
+    // Validate name
+    if (!data.name.trim()) {
+      errors.name = 'Dashboard name is required';
+    } else if (data.name.trim().length < 3) {
+      errors.name = 'Dashboard name must be at least 3 characters';
+    } else if (data.name.trim().length > 50) {
+      errors.name = 'Dashboard name must be less than 50 characters';
+    }
+
+    // Validate URL
+    if (!data.url.trim()) {
+      errors.url = 'Dashboard URL is required';
+    } else {
+      try {
+        const url = new URL(data.url);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          errors.url = 'URL must use HTTP or HTTPS protocol';
+        }
+        // Check if it's a Power BI URL (optional validation)
+        if (!data.url.includes('powerbi.com') && !data.url.includes('app.powerbi.com')) {
+          // This is a warning, not an error - we'll allow non-Power BI URLs
+        }
+      } catch {
+        errors.url = 'Please enter a valid URL';
+      }
+    }
+
+    // Check for duplicate names (excluding current item when editing)
+    const existingDashboard = dashboards.find(d => 
+      d.name.toLowerCase() === data.name.trim().toLowerCase() && 
+      d.id !== editingId
+    );
+    if (existingDashboard) {
+      errors.name = 'A dashboard with this name already exists';
+    }
+
+    return errors;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const trimmedData = {
+      name: formData.name.trim(),
+      url: formData.url.trim(),
+    };
+
+    const validationErrors = validateForm(trimmedData);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length === 0) {
+      if (editingId) {
+        updateDashboard(editingId, trimmedData);
+        toast({
+          title: "Dashboard Updated",
+          description: `"${trimmedData.name}" has been updated successfully.`,
+        });
+        setEditingId(null);
+      } else {
+        addDashboard(trimmedData);
+        toast({
+          title: "Dashboard Added",
+          description: `"${trimmedData.name}" has been added successfully.`,
+        });
+        setIsAddingNew(false);
+      }
+      setFormData({ name: '', url: '' });
+    }
+  };
+
+  const handleEdit = (dashboard: Dashboard) => {
+    setEditingId(dashboard.id);
+    setFormData({ name: dashboard.name, url: dashboard.url });
+    setErrors({});
+    setIsAddingNew(false);
+  };
+
+  const handleDelete = (dashboard: Dashboard) => {
+    if (window.confirm(`Are you sure you want to delete "${dashboard.name}"?`)) {
+      deleteDashboard(dashboard.id);
+      toast({
+        title: "Dashboard Deleted",
+        description: `"${dashboard.name}" has been deleted.`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setIsAddingNew(false);
+    setEditingId(null);
+    setFormData({ name: '', url: '' });
+    setErrors({});
+  };
+
+  const handleAddNew = () => {
+    setIsAddingNew(true);
+    setEditingId(null);
+    setFormData({ name: '', url: '' });
+    setErrors({});
+  };
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation Bar */}
+      <nav className="bg-white shadow-sm border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+            
+            <div className="flex items-center space-x-3">
+              <img 
+                src={mandiriLogo} 
+                alt="Mandiri Logo" 
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = document.createElement('div');
+                  fallback.className = 'h-8 w-12 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs';
+                  fallback.textContent = 'REO';
+                  if (target.parentNode) {
+                    target.parentNode.appendChild(fallback);
+                  }
+                }}
+              />
+              <h1 className="text-xl font-semibold text-gray-900">
+                Dashboard Settings
+              </h1>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <Settings className="h-6 w-6" />
+                <span>Manage Dashboards</span>
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Add, edit, or remove Power BI dashboard URLs
+              </p>
+            </div>
+            <Button
+              onClick={handleAddNew}
+              disabled={isAddingNew || editingId !== null}
+              className="flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Dashboard</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Add/Edit Form */}
+        {(isAddingNew || editingId) && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>
+                {editingId ? 'Edit Dashboard' : 'Add New Dashboard'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Dashboard Name *</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g., Sales Dashboard"
+                      className={errors.name ? 'border-red-500' : ''}
+                    />
+                    {errors.name && (
+                      <p className="text-sm text-red-600">{errors.name}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="url">Dashboard URL *</Label>
+                    <Input
+                      id="url"
+                      type="url"
+                      value={formData.url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
+                      placeholder="https://app.powerbi.com/view?r=..."
+                      className={errors.url ? 'border-red-500' : ''}
+                    />
+                    {errors.url && (
+                      <p className="text-sm text-red-600">{errors.url}</p>
+                    )}
+                  </div>
+                </div>
+
+                <Alert>
+                  <AlertDescription>
+                    <strong>Tip:</strong> To get the Power BI dashboard URL, open your dashboard in Power BI, 
+                    click "File" → "Embed" → "Website or portal" and copy the URL from the embed code.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex items-center space-x-2">
+                  <Button type="submit" className="flex items-center space-x-2">
+                    <Save className="h-4 w-4" />
+                    <span>{editingId ? 'Update' : 'Add'} Dashboard</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancel}
+                    className="flex items-center space-x-2"
+                  >
+                    <X className="h-4 w-4" />
+                    <span>Cancel</span>
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dashboard List */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Current Dashboards ({dashboards.length})
+          </h3>
+          
+          {dashboards.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Dashboards</h3>
+                <p className="text-gray-600 mb-4">
+                  Get started by adding your first Power BI dashboard.
+                </p>
+                <Button onClick={handleAddNew} className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Add Your First Dashboard</span>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {dashboards.map((dashboard) => (
+                <Card key={dashboard.id} className={editingId === dashboard.id ? 'ring-2 ring-blue-500' : ''}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{dashboard.name}</h4>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <p className="text-sm text-gray-600 truncate max-w-md">
+                            {dashboard.url}
+                          </p>
+                          <a
+                            href={dashboard.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(dashboard)}
+                          disabled={isAddingNew || (editingId !== null && editingId !== dashboard.id)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span>Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(dashboard)}
+                          disabled={isAddingNew || editingId !== null}
+                          className="flex items-center space-x-1 text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>Delete</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,10 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-
-interface Dashboard {
-  id: string;
-  name: string;
-  url: string;
-}
+import { Dashboard } from '../contexts/DashboardContext';
 
 export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) {
   const [currentDashboardIndex, setCurrentDashboardIndex] = useState(0);
@@ -69,6 +64,13 @@ export function useAutoRotation(dashboards: Dashboard[], isUserActive: boolean) 
       setTimeRemaining(60);
     }
   }, [isUserActive, isRotating]);
+
+  // Reset index if it's out of bounds (e.g., after deleting dashboards)
+  useEffect(() => {
+    if (currentDashboardIndex >= dashboards.length && dashboards.length > 0) {
+      setCurrentDashboardIndex(0);
+    }
+  }, [dashboards.length, currentDashboardIndex]);
 
   return {
     currentDashboardIndex,

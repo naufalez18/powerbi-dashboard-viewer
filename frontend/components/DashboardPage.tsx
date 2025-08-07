@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useDashboards } from '../contexts/DashboardContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,18 +18,18 @@ import {
   Settings
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { powerBiDashboards } from '../config/dashboards';
 import { useUserActivity } from '../hooks/useUserActivity';
 import { useAutoRotation } from '../hooks/useAutoRotation';
 import mandiriLogo from '../assets/mandiri-logo.png';
 
 export default function DashboardPage() {
   const { isAuthenticated, logout } = useAuth();
+  const { dashboards } = useDashboards();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNavigation, setShowNavigation] = useState(true);
-  const [selectedDashboard, setSelectedDashboard] = useState(powerBiDashboards[0]?.id || '');
+  const [selectedDashboard, setSelectedDashboard] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   
   const isUserActive = useUserActivity();
@@ -39,7 +40,7 @@ export default function DashboardPage() {
     startRotation, 
     stopRotation, 
     nextDashboard 
-  } = useAutoRotation(powerBiDashboards, isUserActive);
+  } = useAutoRotation(dashboards, isUserActive);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,10 +49,16 @@ export default function DashboardPage() {
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (powerBiDashboards[currentDashboardIndex]) {
-      setSelectedDashboard(powerBiDashboards[currentDashboardIndex].id);
+    if (dashboards.length > 0 && !selectedDashboard) {
+      setSelectedDashboard(dashboards[0].id);
     }
-  }, [currentDashboardIndex]);
+  }, [dashboards, selectedDashboard]);
+
+  useEffect(() => {
+    if (dashboards[currentDashboardIndex]) {
+      setSelectedDashboard(dashboards[currentDashboardIndex].id);
+    }
+  }, [currentDashboardIndex, dashboards]);
 
   const handleLogout = () => {
     logout();
@@ -94,7 +101,7 @@ export default function DashboardPage() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const currentDashboard = powerBiDashboards.find(d => d.id === selectedDashboard);
+  const currentDashboard = dashboards.find(d => d.id === selectedDashboard);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -148,7 +155,7 @@ export default function DashboardPage() {
                     <SelectValue placeholder="Select dashboard" />
                   </SelectTrigger>
                   <SelectContent>
-                    {powerBiDashboards.map((dashboard) => (
+                    {dashboards.map((dashboard) => (
                       <SelectItem key={dashboard.id} value={dashboard.id}>
                         {dashboard.name}
                       </SelectItem>
@@ -158,45 +165,57 @@ export default function DashboardPage() {
               </div>
 
               {/* Rotation Controls */}
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={isRotating ? stopRotation : startRotation}
-                  className="flex items-center space-x-1"
-                >
-                  {isRotating ? (
-                    <>
-                      <Pause className="h-4 w-4" />
-                      <span>Pause</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" />
-                      <span>Start</span>
-                    </>
+              {dashboards.length > 1 && (
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={isRotating ? stopRotation : startRotation}
+                    className="flex items-center space-x-1"
+                  >
+                    {isRotating ? (
+                      <>
+                        <Pause className="h-4 w-4" />
+                        <span>Pause</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        <span>Start</span>
+                      </>
+                    )}
+                  </Button>
+                  
+                  {isRotating && (
+                    <Badge variant="outline" className="text-xs">
+                      Next: {formatTime(timeRemaining)}
+                    </Badge>
                   )}
-                </Button>
-                
-                {isRotating && (
-                  <Badge variant="outline" className="text-xs">
-                    Next: {formatTime(timeRemaining)}
-                  </Badge>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={nextDashboard}
-                  className="flex items-center space-x-1"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  <span>Next</span>
-                </Button>
-              </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={nextDashboard}
+                    className="flex items-center space-x-1"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Next</span>
+                  </Button>
+                </div>
+              )}
 
               {/* View Controls */}
               <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/settings')}
+                  className="flex items-center space-x-1"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -265,16 +284,23 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Settings className="h-5 w-5" />
-                  <span>No Dashboard Selected</span>
+                  <span>No Dashboard Available</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 mb-4">
-                  Please select a dashboard from the dropdown menu above.
+                  {dashboards.length === 0 
+                    ? "No dashboards have been configured yet."
+                    : "Please select a dashboard from the dropdown menu above."
+                  }
                 </p>
-                <p className="text-sm text-gray-500">
-                  You can also configure dashboard URLs in the settings.
-                </p>
+                <Button
+                  onClick={() => navigate('/settings')}
+                  className="w-full flex items-center space-x-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Go to Settings</span>
+                </Button>
               </CardContent>
             </Card>
           </div>
