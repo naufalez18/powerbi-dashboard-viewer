@@ -29,6 +29,7 @@ import { DashboardFrame } from './DashboardFrame';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NavigationSkeleton } from './SkeletonLoader';
 import { FullPageLoader } from './LoadingSpinner';
+import { CooldownTimer } from './CooldownTimer';
 
 export default function DashboardPage() {
   const { isAuthenticated, logout } = useAuth();
@@ -84,6 +85,26 @@ export default function DashboardPage() {
       setSelectedDashboard(dashboards[currentDashboardIndex].id);
     }
   }, [currentDashboardIndex, dashboards]);
+
+  // Cursor management for idle state
+  useEffect(() => {
+    const mainElement = containerRef.current;
+    if (!mainElement) return;
+
+    if (!isUserActive && !showNavigation) {
+      // Hide cursor when user is idle and navigation is hidden
+      mainElement.style.cursor = 'none';
+    } else {
+      // Show cursor when user is active or navigation is visible
+      mainElement.style.cursor = 'auto';
+    }
+
+    return () => {
+      if (mainElement) {
+        mainElement.style.cursor = 'auto';
+      }
+    };
+  }, [isUserActive, showNavigation]);
 
   const handleLogout = () => {
     logout();
@@ -223,7 +244,7 @@ export default function DashboardPage() {
     <ErrorBoundary>
       <div 
         ref={containerRef} 
-        className="min-h-screen bg-gray-50"
+        className="min-h-screen bg-gray-50 relative"
         role="main"
         aria-label="Dashboard Viewer Application"
       >
@@ -481,6 +502,15 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Cooldown Timer - Only visible when rotation is active and navigation is hidden */}
+        {isRotating && !showNavigation && dashboards.length > 1 && (
+          <CooldownTimer
+            timeRemaining={timeRemaining}
+            totalTime={settings.rotationInterval}
+            isActive={!isUserActive}
+          />
         )}
 
         {/* Dashboard Content */}
