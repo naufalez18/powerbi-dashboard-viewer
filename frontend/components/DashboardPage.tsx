@@ -16,11 +16,15 @@ import {
   Eye, 
   EyeOff,
   RotateCcw,
-  Settings
+  Settings,
+  Zap,
+  Activity
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserActivity } from '../hooks/useUserActivity';
 import { useAutoRotation } from '../hooks/useAutoRotation';
+import { useDashboardPreloader } from '../hooks/useDashboardPreloader';
+import { useConnectionPool } from '../hooks/useConnectionPool';
 import { DashboardFrame } from './DashboardFrame';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NavigationSkeleton } from './SkeletonLoader';
@@ -37,6 +41,7 @@ export default function DashboardPage() {
   const [selectedDashboard, setSelectedDashboard] = useState('');
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isNavigationLoading, setIsNavigationLoading] = useState(false);
+  const [showPerformanceStats, setShowPerformanceStats] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const isUserActive = useUserActivity();
@@ -48,6 +53,10 @@ export default function DashboardPage() {
     stopRotation, 
     nextDashboard 
   } = useAutoRotation(dashboards, isUserActive, settings.rotationInterval);
+
+  // Initialize performance optimization hooks
+  const { getPreloadStats, isPreloading } = useDashboardPreloader(dashboards, currentDashboardIndex);
+  const { getPoolStats, isWarmingUp } = useConnectionPool(dashboards);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -123,6 +132,10 @@ export default function DashboardPage() {
     }, 200);
   };
 
+  const togglePerformanceStats = () => {
+    setShowPerformanceStats(!showPerformanceStats);
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -151,6 +164,10 @@ export default function DashboardPage() {
             if (dashboards.length > 1) {
               nextDashboard();
             }
+            break;
+          case 'p':
+            event.preventDefault();
+            togglePerformanceStats();
             break;
         }
       }
@@ -182,6 +199,16 @@ export default function DashboardPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getPerformanceStats = () => {
+    const preloadStats = getPreloadStats();
+    const poolStats = getPoolStats();
+    
+    return {
+      preload: preloadStats,
+      pool: poolStats,
+    };
+  };
+
   if (!isAuthenticated) {
     return null;
   }
@@ -189,6 +216,8 @@ export default function DashboardPage() {
   if (isInitialLoading) {
     return <FullPageLoader text="Initializing Dashboard..." />;
   }
+
+  const performanceStats = getPerformanceStats();
 
   return (
     <ErrorBoundary>
@@ -219,12 +248,24 @@ export default function DashboardPage() {
                         REO Dashboard Viewer
                       </h1>
                     </div>
-                    <Badge 
-                      variant={isUserActive ? "default" : "secondary"}
-                      aria-label={`User status: ${isUserActive ? "Active" : "Idle"}`}
-                    >
-                      {isUserActive ? "Active" : "Idle"}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge 
+                        variant={isUserActive ? "default" : "secondary"}
+                        aria-label={`User status: ${isUserActive ? "Active" : "Idle"}`}
+                      >
+                        {isUserActive ? "Active" : "Idle"}
+                      </Badge>
+                      {(isPreloading || isWarmingUp) && (
+                        <Badge 
+                          variant="outline"
+                          className="flex items-center space-x-1"
+                          aria-label="Performance optimization in progress"
+                        >
+                          <Zap className="h-3 w-3" />
+                          <span>Optimizing</span>
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex items-center space-x-4">
@@ -318,6 +359,18 @@ export default function DashboardPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={togglePerformanceStats}
+                        className="flex items-center space-x-1"
+                        aria-label="Toggle performance statistics"
+                        title="Performance stats (Ctrl+P)"
+                      >
+                        <Activity className="h-4 w-4" />
+                        <span>Stats</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={handleSettingsNavigation}
                         className="flex items-center space-x-1"
                         aria-label="Open settings page"
@@ -388,9 +441,51 @@ export default function DashboardPage() {
           </>
         )}
 
+        {/* Performance Stats Panel */}
+        {showPerformanceStats && showNavigation && (
+          <div className="bg-gray-100 border-b border-gray-200 p-3">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">Preloader</span>
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div>Preloaded: {performanceStats.preload.totalPreloaded}/{performanceStats.preload.maxCapacity}</div>
+                    <div>Status: {performanceStats.preload.isPreloading ? 'Active' : 'Idle'}</div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Activity className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">Connection Pool</span>
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div>Active: {performanceStats.pool.activeConnections}/{performanceStats.pool.totalConnections}</div>
+                    <div>Utilization: {Math.round(performanceStats.pool.utilizationPercentage)}%</div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Settings className="h-4 w-4 text-purple-600" />
+                    <span className="font-medium">System</span>
+                  </div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div>Dashboards: {dashboards.length}</div>
+                    <div>User: {isUserActive ? 'Active' : 'Idle'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Dashboard Content */}
         <main 
-          className={`${showNavigation ? 'h-[calc(100vh-80px)]' : 'h-screen'} w-full`}
+          className={`${showNavigation ? (showPerformanceStats ? 'h-[calc(100vh-140px)]' : 'h-[calc(100vh-80px)]') : 'h-screen'} w-full`}
           aria-label="Dashboard content area"
         >
           {currentDashboard ? (
@@ -420,7 +515,11 @@ export default function DashboardPage() {
                 </div>
               }
             >
-              <DashboardFrame dashboard={currentDashboard} />
+              <DashboardFrame 
+                dashboard={currentDashboard} 
+                currentDashboardIndex={currentDashboardIndex}
+                dashboards={dashboards}
+              />
             </ErrorBoundary>
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -476,6 +575,7 @@ export default function DashboardPage() {
             <li>Ctrl+H: Toggle navigation</li>
             <li>Ctrl+R: Start/stop rotation</li>
             <li>Ctrl+N: Next dashboard</li>
+            <li>Ctrl+P: Toggle performance stats</li>
             <li>Escape: Exit fullscreen or show navigation</li>
           </ul>
         </div>
